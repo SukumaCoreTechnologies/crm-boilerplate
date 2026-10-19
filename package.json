@@ -1,0 +1,19 @@
+{
+  "name": "crm-boilerplate-root",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/web\"",
+    "build": "npm run build --workspaces",
+    "db:generate": "npm run generate --workspace=packages/database",
+    "db:push": "npm run db:push --workspace=packages/database",
+    "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  }
+}
