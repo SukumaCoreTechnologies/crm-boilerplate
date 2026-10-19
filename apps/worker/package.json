@@ -1,0 +1,19 @@
+{
+  "name": "@crm/worker",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "private": true,
+  "scripts": {
+    "dev": "node --import tsx/esm src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@crm/database": "workspace:*",
+    "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
