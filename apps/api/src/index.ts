@@ -101,3 +101,7 @@ app.post("/api/contacts", requireScope("contacts:write") as express.RequestHandl
 app.listen(PORT, () => {
   console.log(`CRM API Gateway running with RBAC & Security Layer on port ${PORT}`);
 });
+
+// --- ZERO-TOUCH WEBHOOK INGESTION ENDPOINT ---
+import { handleContactWebhook } from "./webhook.js";
+app.post("/api/webhooks/contacts", handleContactWebhook as express.RequestHandler);
