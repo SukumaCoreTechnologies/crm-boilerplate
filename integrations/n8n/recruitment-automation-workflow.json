@@ -1,0 +1,53 @@
+{
+  "name": "Enterprise AI Recruitment Ingestion Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "candidate-apply",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "name": "Inbound Candidate Webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:4000/api/webhooks/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-signature",
+              "value": "crm_secret_webhook_token"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"email\": \"{{ $json.body.email }}\",\n  \"firstName\": \"{{ $json.body.firstName }}\",\n  \"lastName\": \"{{ $json.body.lastName }}\",\n  \"phone\": \"{{ $json.body.phone }}\",\n  \"consentGiven\": true,\n  \"activityType\": \"RECRUITMENT_APPLICATION\",\n  \"activityDescription\": \"Candidate auto-ingested via n8n pipeline. Position: {{ $json.body.position }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [500, 300],
+      "name": "Secure CRM Ingestion Gateway"
+    }
+  ],
+  "connections": {
+    "Inbound Candidate Webhook": {
+      "main": [
+        [
+          {
+            "node": "Secure CRM Ingestion Gateway",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
