@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
@@ -6,6 +6,7 @@ import { prisma } from "@crm/database";
 import { ContactSchema } from "@crm/types";
 import { isPremiumLicenseActive, encryptValue, decryptValue, logQRadarEvent } from "./security.js";
 import { generateOpenAPIDocument } from "./swagger.js";
+import { authenticateRole, requireScope, AuthenticatedRequest } from "./rbac.js";
 
 dotenv.config();
 
@@ -16,7 +17,10 @@ const MASTER_ENCRYPTION_KEY = process.env.JWT_SECRET || "fallback-master-key-32-
 app.use(cors());
 app.use(express.json());
 
-// --- INTERACTIVE OPENAPI / SWAGGER DOCUMENTATION ---
+// Apply role resolution across incoming requests
+app.use(authenticateRole as express.RequestHandler);
+
+// OpenAPI Swagger Docs
 const openApiDoc = generateOpenAPIDocument();
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDoc));
 
@@ -24,14 +28,14 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDoc));
 app.get("/health", (req, res) => {
   res.json({ 
     status: "healthy", 
-    signature: "Autonomous GRC-Ready CRM Core", 
+    signature: "Autonomous GRC & RBAC Enabled CRM Core", 
     docs: `http://localhost:${PORT}/api-docs`,
     timestamp: new Date().toISOString() 
   });
 });
 
-// --- CONTACTS API ---
-app.get("/api/contacts", async (req: Request, res: Response) => {
+// --- CONTACTS API WITH RBAC SCOPE PROTECTION ---
+app.get("/api/contacts", requireScope("contacts:read") as express.RequestHandler, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const licenseKey = req.headers["x-license-key"] as string;
     const hasPremium = isPremiumLicenseActive(licenseKey);
@@ -55,6 +59,7 @@ app.get("/api/contacts", async (req: Request, res: Response) => {
     res.json({
       data: processedContacts,
       security: {
+        role: req.userRole,
         ibmSiemStatus: "ACTIVE",
         fieldLevelEncryption: hasPremium ? "UNLOCKED" : "ENCRYPTED_RESTRICTED",
       },
@@ -64,7 +69,7 @@ app.get("/api/contacts", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/api/contacts", async (req: Request, res: Response) => {
+app.post("/api/contacts", requireScope("contacts:write") as express.RequestHandler, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validation = ContactSchema.safeParse(req.body);
     if (!validation.success) {
@@ -93,5 +98,6 @@ app.post("/api/contacts", async (req: Request, res: Response) => {
   }
 });
 
-// Return to repository root
-cd ../..
+app.listen(PORT, () => {
+  console.log(`CRM API Gateway running with RBAC & Security Layer on port ${PORT}`);
+});
