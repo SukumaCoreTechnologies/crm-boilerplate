@@ -1,9 +1,11 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import swaggerUi from "swagger-ui-express";
 import { prisma } from "@crm/database";
 import { ContactSchema } from "@crm/types";
 import { isPremiumLicenseActive, encryptValue, decryptValue, logQRadarEvent } from "./security.js";
+import { generateOpenAPIDocument } from "./swagger.js";
 
 dotenv.config();
 
@@ -14,7 +16,21 @@ const MASTER_ENCRYPTION_KEY = process.env.JWT_SECRET || "fallback-master-key-32-
 app.use(cors());
 app.use(express.json());
 
-// --- GET CONTACTS (Decrypts PII only if Premium License Header is sent) ---
+// --- INTERACTIVE OPENAPI / SWAGGER DOCUMENTATION ---
+const openApiDoc = generateOpenAPIDocument();
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDoc));
+
+// Health Check Endpoint
+app.get("/health", (req, res) => {
+  res.json({ 
+    status: "healthy", 
+    signature: "Autonomous GRC-Ready CRM Core", 
+    docs: `http://localhost:${PORT}/api-docs`,
+    timestamp: new Date().toISOString() 
+  });
+});
+
+// --- CONTACTS API ---
 app.get("/api/contacts", async (req: Request, res: Response) => {
   try {
     const licenseKey = req.headers["x-license-key"] as string;
@@ -26,7 +42,6 @@ app.get("/api/contacts", async (req: Request, res: Response) => {
       orderBy: { createdAt: "desc" },
     });
 
-    // Mask or decrypt data based on license state
     const processedContacts = contacts.map((c) => ({
       ...c,
       phone: c.phone
@@ -49,7 +64,6 @@ app.get("/api/contacts", async (req: Request, res: Response) => {
   }
 });
 
-// --- CREATE CONTACT (Encrypts sensitive PII at rest) ---
 app.post("/api/contacts", async (req: Request, res: Response) => {
   try {
     const validation = ContactSchema.safeParse(req.body);
@@ -58,8 +72,6 @@ app.post("/api/contacts", async (req: Request, res: Response) => {
     }
 
     const { phone, customFields, ...data } = validation.data;
-
-    // IBM Field-Level Encryption for sensitive phone field
     const encryptedPhone = phone ? encryptValue(phone, MASTER_ENCRYPTION_KEY) : null;
 
     logQRadarEvent("CREATE_CONTACT", "/api/contacts", "MEDIUM", req);
@@ -81,6 +93,5 @@ app.post("/api/contacts", async (req: Request, res: Response) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`CRM API with IBM Security Layer & License Encryption running on port ${PORT}`);
-});
+// Return to repository root
+cd ../..
