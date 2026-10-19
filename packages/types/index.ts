@@ -26,3 +26,4 @@ export const DealSchema = z.object({
 });
 
 export type Deal = z.infer<typeof DealSchema>;
+export * from "./security.js";
